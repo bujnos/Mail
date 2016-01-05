@@ -899,7 +899,9 @@ class Imap extends Base
             }
         }
 
-        $sender['email'] = $headers1->from[0]->mailbox . '@' . $headers1->from[0]->host;
+        if (isset($headers1->from[0])) {
+            $sender['email'] = $headers1->from[0]->mailbox . '@' . $headers1->from[0]->host;
+        }
 
         //set the to
         if (isset($headers1->to)) {
@@ -1368,7 +1370,11 @@ if (!function_exists('imap_rfc822_parse_headers')) {
         $headers->to = $headers->cc = $headers->bcc = array();
 
         preg_match('#Message\-(ID|id|Id)\:([^\n]*)#', $header, $ID);
-        $headers->ID = trim($ID[2]);
+        if (isset($ID[2])) {
+            $headers->ID = trim($ID[2]);
+        } else {
+            $headers->ID = null;
+        }
         unset($ID);
 
         preg_match('#\nTo\:([^\n]*)#', $header, $to);
@@ -1381,7 +1387,11 @@ if (!function_exists('imap_rfc822_parse_headers')) {
 
         $headers->from = array(new \stdClass());
         preg_match('#\nFrom\:([^\n]*)#', $header, $from);
-        $headers->from[0] = imap_rfc822_parse_headers_decode(trim($from[1]));
+        if (isset($from[1])) {
+            $headers->from[0] = imap_rfc822_parse_headers_decode(trim($from[1]));
+        } else {
+            $headers->from[0] = null;
+        }
 
         preg_match('#\nCc\:([^\n]*)#', $header, $cc);
         if (isset($cc[1])) {
@@ -1400,11 +1410,19 @@ if (!function_exists('imap_rfc822_parse_headers')) {
         }
 
         preg_match('#\nSubject\:([^\n]*)#', $header, $subject);
-        $headers->subject = trim($subject[1]);
+        if (isset($subject[1])) {
+            $headers->subject = trim($subject[1]);
+        } else {
+            $headers->subject = null;
+        }
         unset($subject);
 
         preg_match('#\nDate\:([^\n]*)#', $header, $date);
-        $date = substr(trim($date[0]), 6);
+        if (isset($date[0])) {
+            $date = substr(trim($date[0]), 6);
+        } else {
+            $date = null;
+        }
 
         $date = preg_replace('/\(.*\)/', '', $date);
 
