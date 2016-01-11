@@ -1364,7 +1364,7 @@ if (!function_exists('imap_rfc822_parse_headers')) {
 
     function imap_rfc822_parse_headers($header)
     {
-        $header = htmlentities($header);
+        //$header = htmlentities($header);
         $headers = new \stdClass();
         $tos = $ccs = $bccs = array();
         $headers->to = $headers->cc = $headers->bcc = array();
