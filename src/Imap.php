@@ -94,11 +94,17 @@ class Imap extends Base
      * @var array $mailboxes The list of mailboxes
      */
     protected $mailboxes = array();
-       
+
+    /**
+     * @var bool $peek Peek mode switch
+     */
+    protected $peek = false;
+
     /**
      * @var bool $debugging If true outputs the logs
      */
     private $debugging = false;
+
 
     /**
      * Constructor - Store connection information
@@ -143,10 +149,11 @@ class Imap extends Base
      *
      * @param int  $timeout The connection timeout
      * @param bool $test    Whether to output the logs
+     * @param bool $peek    Not marking automatically fetched messages if true
      *
      * @return Eden\Mail\Imap
      */
-    public function connect($timeout = self::TIMEOUT, $test = false)
+    public function connect($timeout = self::TIMEOUT, $test = false, $peek = false)
     {
         Argument::i()->test(1, 'int')->test(2, 'bool');
 
@@ -209,6 +216,8 @@ class Imap extends Base
             //throw exception
             Exception::i(Exception::LOGIN_ERROR)->trigger();
         }
+
+        $this->peek = $peek;
 
         return $this;
     }
@@ -310,10 +319,15 @@ class Imap extends Base
             }
         }
 
-        $items = array('UID', 'FLAGS', 'BODY[HEADER]');
+        $peek = '';
+        if ($this->peek) {
+            $peek = '.PEEK';
+        }
+
+        $items = array('UID', 'FLAGS', 'BODY'.$peek.'[HEADER]');
 
         if ($body) {
-            $items  = array('UID', 'FLAGS', 'BODY[]');
+            $items  = array('UID', 'FLAGS', 'BODY'.$peek.'[]');
         }
 
         //now lets call this
@@ -410,11 +424,16 @@ class Imap extends Base
             $uid = implode(',', $uid);
         }
 
+        $peek = '';
+        if ($this->peek) {
+            $peek = '.PEEK';
+        }
+
         //lets call it
-        $items = array('UID', 'FLAGS', 'BODY[HEADER]');
+        $items = array('UID', 'FLAGS', 'BODY'.$peek.'[HEADER]');
 
         if ($body) {
-            $items = array('UID', 'FLAGS', 'BODY[]');
+            $items = array('UID', 'FLAGS', 'BODY'.$peek.'[]');
         }
 
         $first = is_numeric($uid) ? true : false;
