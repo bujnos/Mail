@@ -1013,6 +1013,10 @@ class Imap extends Base
             $messageId = '<eden-no-id-'.md5(uniqid()).'>';
         }
 
+        if (is_array($headers2['content-type'])) {
+            $headers2['content-type'] = end($headers2['content-type']);
+        }
+
         $attachment = isset($headers2['content-type'])
         && strpos($headers2['content-type'], 'multipart/mixed') === 0;
 
