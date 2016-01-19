@@ -959,7 +959,7 @@ class Smtp extends Base
     }
 
     /**
-     * Returns true if there's UTF encodeing
+     * Returns true if there's UTF encoding
      *
      * @param *string The string to test
      *
