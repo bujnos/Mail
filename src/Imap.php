@@ -782,7 +782,7 @@ class Imap extends Base
      * Sends out the command
      *
      * @param *string $command   The raw IMAP command
-     * @param array   $parameter Parameters to include
+     * @param array   $parameters Parameters to include
      *
      * @return bool
      */
