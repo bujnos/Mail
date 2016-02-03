@@ -262,7 +262,7 @@ class Imap extends Base
     public function getEmails($start = 0, $range = 10, $body = false)
     {
         Argument::i()
-            ->test(1, 'int', 'array')
+            ->test(1, 'int', 'array','string')
             ->test(2, 'int');
 
         //if not connected
@@ -280,45 +280,47 @@ class Imap extends Base
         }
 
         //if start is an array
-        if (is_array($start)) {
-            //it is a set of numbers
-            $set = implode(',', $start);
-            //just ignore the range parameter
-        } else {
-            //start is a number
-            //range must be grater than 0
-            $range = $range > 0 ? $range : 1;
-            //start must be a positive number
-            $start = $start >= 0 ? $start : 0;
+        switch(true){
+            case is_array($start):
+                $set = implode(',', $start);
+                break;
+            case strpos($start,':') !== false:
+                $set = $start;
+                break;
+            default:
+                //range must be grater than 0
+                $range = $range > 0 ? $range : 1;
+                //start must be a positive number
+                $start = $start >= 0 ? $start : 0;
 
-            //calculate max (ex. 300 - 4 = 296)
-            $max = $this->total - $start;
+                //calculate max (ex. 300 - 4 = 296)
+                $max = $this->total - $start;
 
-            //if max is less than 1
-            if ($max < 1) {
-                //set max to total (ex. 300)
-                $max = $this->total;
-            }
+                //if max is less than 1
+                if ($max < 1) {
+                    //set max to total (ex. 300)
+                    $max = $this->total;
+                }
 
-            //calculate min (ex. 296 - 15 + 1 = 282)
-            $min = $max - $range + 1;
+                //calculate min (ex. 296 - 15 + 1 = 282)
+                $min = $max - $range + 1;
 
-            //if min less than 1
-            if ($min < 1) {
-                //set it to 1
-                $min = 1;
-            }
+                //if min less than 1
+                if ($min < 1) {
+                    //set it to 1
+                    $min = 1;
+                }
 
-            //now add min and max to set (ex. 282:296 or 1 - 300)
-            $set = $min . ':' . $max;
+                //now add min and max to set (ex. 282:296 or 1 - 300)
+                $set = $min . ':' . $max;
 
-            //if min equal max
-            if ($min == $max) {
-                //we should only get one number
-                $set = $min;
-            }
+                //if min equal max
+                if ($min == $max) {
+                    //we should only get one number
+                    $set = $min;
+                }
         }
-
+      
         $peek = '';
         if ($this->peek) {
             $peek = '.PEEK';
@@ -623,6 +625,35 @@ class Imap extends Base
         return array();
     }
 
+    public function searchUIDs($from, $to)
+    {
+        if (!$this->socket) {
+            $this->connect();
+        }
+        $search = sprintf('UID %s:%s', $from, $to);
+
+        $response = $this->call('UID SEARCH '.$search);
+
+        $result = array_pop($response);
+        //if we got some results
+        if (strpos($result, 'OK') !== false) {
+            //parse out the uids
+            $uids = explode(' ', $response[0]);
+            array_shift($uids);
+            array_shift($uids);
+
+
+            if (empty($uids)) {
+                return array();
+            }
+
+            return $uids;
+        }
+
+        //it's not okay just return an empty set
+        return array();
+    }
+    
     /**
      * Returns the total amount of emails
      *
@@ -1013,7 +1044,7 @@ class Imap extends Base
             $messageId = '<eden-no-id-'.md5(uniqid()).'>';
         }
 
-        if (is_array($headers2['content-type'])) {
+        if (array_key_exists('content-type', $headers2) && is_array($headers2['content-type'])) {
             $headers2['content-type'] = end($headers2['content-type']);
         }
 
@@ -1084,7 +1115,7 @@ class Imap extends Base
         $messageId  = $uniqueId = $count = 0;
         $emails     = $email = array();
         $start      = time();
-
+        $flags = array();
         //while there is no hang
         while (time() < ($start + self::TIMEOUT)) {
             //get a response line
@@ -1194,6 +1225,7 @@ class Imap extends Base
      */
     private function getHeaders($rawData)
     {
+//        $a = $rawData;
         if (is_string($rawData)) {
             $rawData = explode("\n", $rawData);
         }
@@ -1201,7 +1233,7 @@ class Imap extends Base
         $key = null;
         $headers = array();
         foreach ($rawData as $line) {
-            $line = trim($line);
+            $line = trim(mb_decode_mimeheader($line));
             if (preg_match("/^([a-zA-Z0-9-]+):/i", $line, $matches)) {
                 $key = strtolower($matches[1]);
                 if (isset($headers[$key])) {
@@ -1226,7 +1258,7 @@ class Imap extends Base
                 $headers[$key] .= ' '.$line;
             }
         }
-
+        
         return $headers;
     }
 
@@ -1300,6 +1332,14 @@ class Imap extends Base
             unset($extra[$i]);
         }
 
+        if(isset($head["content-disposition"]))
+        {
+          $tmp = $this->_parseHeaderValue($head["content-disposition"]);
+          if(isset($tmp['other']) && isset($tmp['other']['filename'])){
+              $extra['name'] = $tmp['other']['filename'];
+          }
+        }
+        
         //if a boundary is set
         if (isset($extra['boundary'])) {
             //split the body into sections
@@ -1342,7 +1382,12 @@ class Imap extends Base
 
             if (isset($extra['name'])) {
                 //add to parts
-                $parts['attachment'][$extra['name']][$type] = $body;
+                $parts['attachment'][] = array(
+                    'name' => $extra['name'],
+                    'type' => $type,
+                    'body' => $body
+                );
+//                $parts['attachment'][$extra['name']][$type] = $body;
             } else {
                 //it's just a regular body
                 //add to parts
@@ -1351,8 +1396,171 @@ class Imap extends Base
         }
         return $parts;
     }
-}
 
+
+    /**
+     * Function to parse a header value,
+     * extract first part, and any secondary
+     * parts (after ;) This function is not as
+     * robust as it could be. Eg. header comments
+     * in the wrong place will probably break it.
+     *
+     * Extra things this can handle
+     *   filename*0=......
+     *   filename*1=......
+     *
+     *  This is where lines are broken in, and need merging.
+     *
+     *   filename*0*=ENC'lang'urlencoded data.
+     *   filename*1*=ENC'lang'urlencoded data.
+     *
+     *
+     *
+     * @param string Header value to parse
+     * @return array Contains parsed result
+     * @access private
+     */
+    protected function _parseHeaderValue($input)
+    {
+         if (($pos = strpos($input, ';')) === false) {
+//            $input = $this->_decodeHeader($input);
+            $return['value'] = trim($input);
+            return $return;
+        }
+        $value = substr($input, 0, $pos);
+       // $value = $this->_decodeHeader($value);
+        $return['value'] = trim($value);
+        $input = trim(substr($input, $pos+1));
+        if (!strlen($input) > 0) {
+            return $return;
+        }
+        // at this point input contains xxxx=".....";zzzz="...."
+        // since we are dealing with quoted strings, we need to handle this properly..
+        $i = 0;
+        $l = strlen($input);
+        $key = '';
+        $val = false; // our string - including quotes..
+        $q = false; // in quote..
+        $lq = ''; // last quote..
+        while ($i < $l) {
+            $c = $input[$i];
+            //var_dump(array('i'=>$i,'c'=>$c,'q'=>$q, 'lq'=>$lq, 'key'=>$key, 'val' =>$val));
+            $escaped = false;
+            if ($c == '\\') {
+                $i++;
+                if ($i == $l-1) { // end of string.
+                    break;
+                }
+                $escaped = true;
+                $c = $input[$i];
+            }
+            // state - in key..
+            if ($val === false) {
+                if (!$escaped && $c == '=') {
+                    $val = '';
+                    $key = trim($key);
+                    $i++;
+                    continue;
+                }
+                if (!$escaped && $c == ';') {
+                    if ($key) { // a key without a value..
+                        $key= trim($key);
+                        $return['other'][$key] = '';
+                    }
+                    $key = '';
+                }
+                $key .= $c;
+                $i++;
+                continue;
+            }
+            // state - in value.. (as $val is set..)
+            if ($q === false) {
+                // not in quote yet.
+                if ((!strlen($val) || $lq !== false) && $c == ' ' ||  $c == "\t") {
+                    $i++;
+                    continue; // skip leading spaces after '=' or after '"'
+                }
+                // do not de-quote 'xxx*= itesm..
+                $key_is_trans = $key[strlen($key)-1] == '*';
+                if (!$key_is_trans && !$escaped && ($c == '"' || $c == "'")) {
+                    // start quoted area..
+                    $q = $c;
+                    // in theory should not happen raw text in value part..
+                    // but we will handle it as a merged part of the string..
+                    $val = !strlen(trim($val)) ? '' : trim($val);
+                    $i++;
+                    continue;
+                }
+                // got end....
+                if (!$escaped && $c == ';') {
+                    $return['other'][$key] = trim($val);
+                    $val = false;
+                    $key = '';
+                    $lq = false;
+                    $i++;
+                    continue;
+                }
+                $val .= $c;
+                $i++;
+                continue;
+            }
+            // state - in quote..
+            if (!$escaped && $c == $q) {  // potential exit state..
+                // end of quoted string..
+                $lq = $q;
+                $q = false;
+                $i++;
+                continue;
+            }
+            // normal char inside of quoted string..
+            $val.= $c;
+            $i++;
+        }
+        // do we have anything left..
+        if (strlen(trim($key)) || $val !== false) {
+            $val = trim($val);
+            $return['other'][$key] = $val;
+        }
+        $clean_others = array();
+        // merge added values. eg. *1[*]
+        foreach($return['other'] as $key =>$val) {
+            if (preg_match('/\*[0-9]+\**$/', $key)) {
+                $key = preg_replace('/(.*)\*[0-9]+(\**)$/', '\1\2', $key);
+                if (isset($clean_others[$key])) {
+                    $clean_others[$key] .= $val;
+                    continue;
+                }
+            }
+            $clean_others[$key] = $val;
+        }
+        // handle language translation of '*' ending others.
+        foreach( $clean_others as $key =>$val) {
+            if ( $key[strlen($key)-1] != '*') {
+                $clean_others[strtolower($key)] = $val;
+                continue;
+            }
+            unset($clean_others[$key]);
+            $key = substr($key,0,-1);
+            //extended-initial-value := [charset] "'" [language] "'"
+            //              extended-other-values
+            $match = array();
+            $info = preg_match("/^([^']+)'([^']*)'(.*)$/", $val, $match);
+            $clean_others[$key] = urldecode($match[3]);
+            $clean_others[strtolower($key)] = $clean_others[$key];
+            $clean_others[strtolower($key).'-charset'] = $match[1];
+            $clean_others[strtolower($key).'-language'] = $match[2];
+        }
+        $return['other'] = $clean_others;
+        // decode values.
+        foreach($return['other'] as $key =>$val) {
+            $charset = isset($return['other'][$key . '-charset']) ?
+                $return['other'][$key . '-charset']  : false;
+            $return['other'][$key] = $val;//$this->_decodeHeader($val, $charset); ignore 
+            
+        }
+        return $return;
+    }
+}
 // if IMAP PHP is not installed we still need these functions
 if (!function_exists('imap_rfc822_parse_headers')) {
     function imap_rfc822_parse_headers_decode($from)
