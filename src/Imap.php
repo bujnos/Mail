@@ -1334,12 +1334,12 @@ class Imap extends Base
 
         if(isset($head["content-disposition"]))
         {
-          $tmp = $this->_parseHeaderValue($head["content-disposition"]);
+          $tmp = self::_parseHeaderValue($head["content-disposition"]);
           if(isset($tmp['other']) && isset($tmp['other']['filename'])){
               $extra['name'] = $tmp['other']['filename'];
           }
         }
-        
+
         //if a boundary is set
         if (isset($extra['boundary'])) {
             //split the body into sections
@@ -1420,7 +1420,7 @@ class Imap extends Base
      * @return array Contains parsed result
      * @access private
      */
-    protected function _parseHeaderValue($input)
+    public static function _parseHeaderValue($input)
     {
          if (($pos = strpos($input, ';')) === false) {
 //            $input = $this->_decodeHeader($input);
@@ -1642,7 +1642,9 @@ if (!function_exists('imap_rfc822_parse_headers')) {
 
         preg_match('#\nSubject\:([^\n]*)#', $header, $subject);
         if (isset($subject[1])) {
-            $headers->subject = trim($subject[1]);
+            if(!$headers->subject = iconv_mime_decode(trim($subject[1]),2, "utf-8")){
+                $headers->subject = trim($subject[1]);
+            }
         } else {
             $headers->subject = null;
         }
