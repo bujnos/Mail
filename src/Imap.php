@@ -949,6 +949,19 @@ class Imap extends Base
             }
         }
 
+        if (!$sender['name'] && isset($headers2['from'])) {
+            $matches = [];
+            preg_match('/\s*"?([^><,"]+)"?\s*((?:<[^><,]+>)?)\s*/',$headers2['from'] ,$matches);
+
+            if(array_key_exists(1, $matches)){
+                $sender['name'] = trim($matches[1]);
+            }
+            if ($sender['name'] && preg_match("/^\=\?[a-zA-Z]+\-[0-9]+.*\?/", strtolower($sender['name']))) {
+                //decode the subject
+                $sender['name'] = str_replace('_', ' ', mb_decode_mimeheader($sender['name']));
+            }
+        }
+
         if (isset($headers1->from[0])) {
             $sender['email'] = $headers1->from[0]->mailbox . '@' . $headers1->from[0]->host;
         }
