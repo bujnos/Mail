@@ -387,7 +387,11 @@ class Imap extends Base
                 continue;
             }
 
-            $mailboxes[] = $line[count($line)-2];
+            if($line[count($line)-2] == '.'){
+                $mailboxes[] = trim($line[count($line)-1]);
+            }else{
+                $mailboxes[] = $line[count($line)-2];
+            }
         }
 
         return $mailboxes;
