@@ -29,67 +29,67 @@ class Imap extends Base
      * @const string NO_SUBJECT Default subject
      */
     const NO_SUBJECT = '(no subject)';
-       
+
     /**
      * @var string $host The IMAP Host
      */
     protected $host = null;
-       
+
     /**
      * @var string|null $port The IMAP port
      */
     protected $port = null;
-       
+
     /**
      * @var bool $ssl Whether to use SSL
      */
     protected $ssl = false;
-       
+
     /**
      * @var bool $tls Whether to use TLS
      */
     protected $tls = false;
-       
+
     /**
      * @var string|null $username The mailbox user name
      */
     protected $username = null;
-       
+
     /**
      * @var string|null $password The mailbox password
      */
     protected $password = null;
-       
+
     /**
      * @var int $tag The tag number
      */
     protected $tag = 0;
-       
+
     /**
      * @var int $total The total main in mailbox
      */
     protected $total = 0;
-       
+
     /**
      * @var int $next for pagination
      */
     protected $next = 0;
-       
+
     /**
      * @var string|null $buffer Mail body
      */
     protected $buffer = null;
-       
+
     /**
      * @var [RESOURCE] $socket The socket connection
      */
     protected $socket = null;
-       
+
     /**
      * @var string|null $mailbox The mailbox name
      */
     protected $mailbox = null;
-       
+
     /**
      * @var array $mailboxes The list of mailboxes
      */
@@ -320,7 +320,7 @@ class Imap extends Base
                     $set = $min;
                 }
         }
-      
+
         $peek = '';
         if ($this->peek) {
             $peek = '.PEEK';
@@ -383,14 +383,21 @@ class Imap extends Base
 
             $line = explode('"', $line);
 
+            foreach($line as $k=>$_line){
+              if(!mb_strlen(trim($_line))){
+                  unset($line[$k]);
+              }
+            }
+            $line = array_values($line);
+
             if (strpos(trim($line[0]), '*') !== 0) {
                 continue;
             }
 
-            if($line[count($line)-2] == '.'){
-                $mailboxes[] = trim($line[count($line)-1]);
+            if($line[count($line)-1] == '.'){
+                $mailboxes[] = trim($line[count($line)]);
             }else{
-                $mailboxes[] = $line[count($line)-2];
+                $mailboxes[] = trim($line[count($line)-1]);
             }
         }
 
@@ -495,7 +502,7 @@ class Imap extends Base
 
         return $this;
     }
-    
+
     /**
      * Remove an email from a mailbox
      *
@@ -503,9 +510,9 @@ class Imap extends Base
      */
     public function expunge()
     {
-        
+
         $this->call('expunge');
-                    
+
         return $this;
     }
 
@@ -657,7 +664,7 @@ class Imap extends Base
         //it's not okay just return an empty set
         return array();
     }
-    
+
     /**
      * Returns the total amount of emails
      *
@@ -1275,7 +1282,7 @@ class Imap extends Base
                 $headers[$key] .= ' '.$line;
             }
         }
-        
+
         return $headers;
     }
 
@@ -1572,8 +1579,8 @@ class Imap extends Base
         foreach($return['other'] as $key =>$val) {
             $charset = isset($return['other'][$key . '-charset']) ?
                 $return['other'][$key . '-charset']  : false;
-            $return['other'][$key] = $val;//$this->_decodeHeader($val, $charset); ignore 
-            
+            $return['other'][$key] = $val;//$this->_decodeHeader($val, $charset); ignore
+
         }
         return $return;
     }
