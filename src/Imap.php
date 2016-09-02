@@ -1409,7 +1409,8 @@ class Imap extends Base
                 $parts['attachment'][] = array(
                     'name' => $extra['name'],
                     'type' => $type,
-                    'body' => $body
+                    'body' => $body,
+                    'cid'  => isset($head['content-id'])?$head['content-id']:null
                 );
 //                $parts['attachment'][$extra['name']][$type] = $body;
             } else {
