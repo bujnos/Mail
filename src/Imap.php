@@ -784,6 +784,11 @@ class Imap extends Base
      */
     protected function getLine()
     {
+        if(null === $this->socket){
+            $this->disconnect();
+            return null;
+        }
+
         $line = fgets($this->socket);
 
         if ($line === false) {
@@ -809,6 +814,9 @@ class Imap extends Base
         $start = time();
 
         while (time() < ($start + self::TIMEOUT)) {
+            if(null === $this->socket){
+                return null;
+            }
             list($receivedTag, $line) = explode(' ', $this->getLine(), 2);
             $this->buffer[] = trim($receivedTag . ' ' . $line);
             if ($receivedTag == 'TAG'.$sentTag) {
